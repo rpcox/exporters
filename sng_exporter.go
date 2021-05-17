@@ -9,13 +9,8 @@ import (
 	"strings"
 )
 
-type MetricType struct {
-  counter string
-  gauge   string
-}
 
-
-type SNG_MetricLine struct {   // Field names from 'syslog-ng-ctl stats' call
+type SNGData struct {      // Field names from 'syslog-ng-ctl stats' call
 	objectType string  // SourceName
 	id         string  // SourceId
 	instance   string  // SourceInstance
@@ -24,39 +19,36 @@ type SNG_MetricLine struct {   // Field names from 'syslog-ng-ctl stats' call
 	value      float64 // Number
 }
 
-func TypeLine (metricName string, metricType string) {
-	s:= []string{"# TYPE ", metricName, " ", metricType}
-	return strings.Join(s,"_")
+func TypeLine (metricName string, metricType string) string {
+	slice:= []string{"# TYPE", metricName, metricType}
+	return strings.Join(slice," ")
 }
 
-func MetricLine(metricName string, SNG_MetricLine ml) {
-	s:= []string{metricName, "{id\"", ml.id, "\",item=\"", ml.item, "\",state=\"", ml.state, "\",type=\"", ml.statType, "\"} "}
+func MetricLine(metricName string, sng SNGData) string {
+	num := fmt.Sprintf("%g", sng.value)
+	s:= []string{metricName, "{sngId=\"", sng.id, "\",sngInstance=\"", sng.instance, "\",sngState=\"", sng.state, "\"} ", num}
+	return strings.Join(s,"")
 }
 
-func MetricName(MetricLine m) string {
-	s:= []string{"sng", m.objectType}
-	s = strings.Join(s, "_")
-	return strings.ReplaceAll(s, ".", "_")
+func MetricName(m SNGData) string {
+	slice:= []string{"sng", m.objectType, m.statType}
+	return strings.ReplaceAll(strings.Join(slice,"_"), ".", "_")
 }
 
-
-func parseLine(line string) (MetricLine, error) {
+func parseLine(line string) (SNGData, error) {
+	var s SNGData
 	chunk := strings.SplitN(strings.TrimSpace(line), ";", 6)
-
 	num, err := strconv.ParseFloat(chunk[5], 64)
+
 	if err != nil {
-		return MetricLine{}, err
+		return s, err
 	}
 
-	//if chunk[4] == "o" {  // an orphan, skip it
-        //		
-	//}
-
-	return MetricLine{chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], num}, nil
+	s = SNGData{chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], num}
+	return s, nil
 }
 
 func GetSNGStats() {
-	mt := MetricType("counter", "gauge")
 	c, err := net.Dial("unix", "/var/lib/syslog-ng/syslog-ng.ctl")
 
 	if err != nil {
@@ -80,16 +72,13 @@ func GetSNGStats() {
 		return
 	}
 
+	var statType string
 	for {
 		line, err := buf.ReadString('\n')
 
 		if err != nil || line[0] == '.' {
-			fmt.Println("** End of STATS **")
+			// end of STATS
 			break
-		}
-
-		if line[4] == 'o' || line[4] == 'd' { // don't want orphans or dynamics
-			continue
 		}
 
 		sngData, err := parseLine(line)
@@ -98,22 +87,34 @@ func GetSNGStats() {
 			continue
 		}
 
-		name := generateMetricName(line)
+		if sngData.state == "o" || sngData.state == "d" { // don't want orphans or dynamics
+			continue
+		}
+
+
+		name := MetricName(sngData)
 
 		switch sngData.objectType[0:4] {
 		case "src.":
-			        switch sngData.statType {
-				case "processed":
-				        fmt.Println(TypeLine(name, mt.gauge))
-				case "stamp":
-				        fmt.Println(TypeLine(name, mt.counter)
-				}
-			case "dst.":
-			case "filt":
+			switch sngData.statType[0:2] {
+			case "pr": // processed
+				statType = "counter"
+			case "st": // stamp
+				statType = "counter"
+			}
+		case "dst.":
+			switch sngData.statType[0:1] {
+			case "p", "d", "w" :
+				statType = "counter"
+			case "m", "q":
+				statType = "gauge"
+			}
+		case "filt":
 			//default:
 		}
 
-		fmt.Println(MetricLine(name, sngData)))
+	        fmt.Println(TypeLine(name, statType))
+		fmt.Println(MetricLine(name, sngData))
 	}
 
 }
