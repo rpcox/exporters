@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 )
@@ -48,7 +49,7 @@ func parseLine(line string) (SNGData, error) {
 	return s, nil
 }
 
-func GetSNGStats() {
+func GetSNGStats(w http.ResponseWriter) {
 	c, err := net.Dial("unix", "/var/lib/syslog-ng/syslog-ng.ctl")
 
 	if err != nil {
@@ -66,7 +67,7 @@ func GetSNGStats() {
 
 	buf := bufio.NewReader(c)
 	_, err = buf.ReadString('\n')
-	
+
 	if err != nil {
 		log.Print("syslog-ng.ctl read error: ", err)
 		return
@@ -113,13 +114,21 @@ func GetSNGStats() {
 			//default:
 		}
 
-	        fmt.Println(TypeLine(name, statType))
-		fmt.Println(MetricLine(name, sngData))
+	        fmt.Fprintln(w, TypeLine(name, statType))
+		fmt.Fprintln(w, MetricLine(name, sngData))
 	}
 
 }
 
 
 func main() {
-	GetSNGStats()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "/metrics")
+	})
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		GetSNGStats(w)
+	})
+	http.ListenAndServe(":8000", mux)
 }
+
