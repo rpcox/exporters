@@ -1,11 +1,14 @@
+// sng_export.go - Syslog-NG exporter for Prometheus
 package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -100,18 +103,19 @@ func GetSNGStats(w http.ResponseWriter) {
 			switch sngData.statType[0:2] {
 			case "pr": // processed
 				statType = "counter"
-			case "st": // stamp
+			case "st": // stamped
 				statType = "counter"
 			}
 		case "dst.":
 			switch sngData.statType[0:1] {
-			case "p", "d", "w" :
+			case "p", "d", "w" : // processed, dropped, written
 				statType = "counter"
-			case "m", "q":
+			case "m", "q":       // memory used, queued
 				statType = "gauge"
 			}
 		case "filt":
-			//default:
+
+		//default:
 		}
 
 	        fmt.Fprintln(w, TypeLine(name, statType))
@@ -120,15 +124,31 @@ func GetSNGStats(w http.ResponseWriter) {
 
 }
 
+var port string
+
+func init() {
+	flag.StringVar(&port, "port", "8000", "Local port to bind")
+}
 
 func main() {
+
+	if len(os.Args) > 2 {
+		flag.Parse()
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "/metrics")
+		fmt.Fprintln(w, "<html>\n" +
+			        " <head><title>Syslog-NG Exporter</title></head>\n" +
+			        "  <body>\n" +
+			        "  <h1>Syslog-NG Exporter</h1>\n" +
+			        " <p><a href=\"/metrics\">Metrics</a></p>\n" +
+			        "</body>\n" +
+			        "</html>")
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		GetSNGStats(w)
 	})
-	http.ListenAndServe(":8000", mux)
+	http.ListenAndServe(":"+port, mux)
 }
 
