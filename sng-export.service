@@ -1,0 +1,14 @@
+[Unit]
+Description=Syslog-NG Exporter for Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=nobody
+Group=nogroup
+Type=simple
+ExecStart=/opt/sng_export/sng_exporter
+
+[Install]
+WantedBy=multi-user.target
+
