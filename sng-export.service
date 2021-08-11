@@ -4,10 +4,10 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-User=nobody
-Group=nogroup
+User=root
+Group=root
 Type=simple
-ExecStart=/opt/sng_export/sng_exporter
+ExecStart=/opt/sng-export/sng-export
 
 [Install]
 WantedBy=multi-user.target
