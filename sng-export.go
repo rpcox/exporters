@@ -166,6 +166,16 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	return txBytes, nil
 }
 
+func logIt(r *http.Request, txBytes int, code int) {
+
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "-"
+	}
+
+	log.Print(getClientIP(r), " \"" + r.Method + " " + r.URL.String() + "\" ", txBytes, " ", code, " \"" + referer + "\" " + r.Header.Get("User-Agent"))
+}
+
 var ip, logFile, port, socket string
 
 func init() {
@@ -187,6 +197,7 @@ func main() {
 	defer fhLog.Close()
 
 	log.SetOutput(fhLog)
+	log.SetFlags(log.Lmicroseconds | log.LUTC | log.Ldate | log.Ltime)
 	log.Println("sng-export starting")
 	log.Println("bind: " + ip + ":" + port)
 	log.Println("syslog-ng socket: " + socket)
@@ -210,28 +221,23 @@ func main() {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type","text/html")
 		content := rootContent
-		referer := r.Header.Get("Referer")
-		url := r.URL.String()
 		code := 200
 
-		if referer == "" {
-			referer = "-"
-		}
-		if url != "/" {
+		if r.URL.String() != "/" {
 			code = 404
 			content = NFContent
 		}
 
 		txBytes := len(content)
 		fmt.Fprintln(w, content)
-		log.Print(getClientIP(r), " \"" + r.Method + " " + r.URL.String() + "\" ", txBytes, " ", code, " \"" + referer + "\" " + r.Header.Get("User-Agent"))
+		logIt(r, txBytes, code)
 	})
 
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "text/plain")
 		txBytes, err := GetSNGStats(w, socket)
 		if err == nil {
-			log.Print(r.Method + " \"/metrics\" ", txBytes)
+			logIt(r, txBytes, 200)
 		} else {
 			log.Print(err)
 		}
