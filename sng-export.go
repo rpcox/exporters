@@ -13,6 +13,36 @@ import (
 	"strings"
 )
 
+func getIPAddr(s string) string {
+	index := strings.LastIndex(s, ":")
+	if index == -1 {
+		return s
+	}
+
+	return s[:index]
+}
+
+func getClientIP(r *http.Request) string {
+	xRealIP := r.Header.Get("X-Real-Ip")
+	xForwardedFor := r.Header.Get("X-Forwarded-For")
+
+	if xRealIP == "" && xForwardedFor == "" {
+		return getIPAddr(r.RemoteAddr)
+	}
+
+	if xForwardedFor != "" {
+		// X-Forwarded-For is potentially a list of addresses separated with ","
+		ipAddrs := strings.Split(xForwardedFor, ",")
+		for i, p := range ipAddrs {
+			ipAddrs[i] = strings.TrimSpace(p)
+		}
+
+		return ipAddrs[0]
+	}
+
+	return xRealIP
+}
+
 type SNGData struct {      // Field names from 'syslog-ng-ctl stats' call
 	objectType string  // SourceName
 	id         string  // SourceId
@@ -66,31 +96,32 @@ func parseLine(line string) (SNGData, error) {
 	return s, nil
 }
 
-func GetSNGStats(w http.ResponseWriter, socket string) {
+func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	c, err := net.Dial("unix", socket)
 
 	if err != nil {
-		log.Print("syslog-ng.ctl Dial() error: ", err)
-		return
+		log.Print(err)
+		return 0, err
 	}
 
 	defer c.Close()
 	_, err = c.Write([]byte("STATS\n"))
 
 	if err != nil {
-		log.Print("syslog-ng.ctl write error: ", err)
-		return
+		log.Print(err)
+		return 0, err
 	}
 
 	buf := bufio.NewReader(c)
 	_, err = buf.ReadString('\n')
 
 	if err != nil {
-		log.Print("syslog-ng.ctl read error: ", err)
-		return
+		log.Print(err)
+		return 0, err
 	}
 
 	var metricType string
+	txBytes  := 0
 	typeName := make(map[string]int)
 
 	for {
@@ -102,7 +133,7 @@ func GetSNGStats(w http.ResponseWriter, socket string) {
 
 		sngData, err := parseLine(line)
 		if err != nil {
-			log.Print("parse error: ", err)
+			log.Print(err)
 			continue
 		}
 
@@ -125,40 +156,87 @@ func GetSNGStats(w http.ResponseWriter, socket string) {
 		if ! exist {
 			typeName[metricName] = 1
 			fmt.Fprintln(w, typeText)
+			txBytes += len(typeText)
 		}
-
-		fmt.Fprintln(w, CreateMetricLine(metricName, sngData))
+		metricText := CreateMetricLine(metricName, sngData)
+		fmt.Fprintln(w, metricText)
+		txBytes += len(metricText)
 	}
+
+	return txBytes, nil
 }
 
-var port, logFile, socket string
+var ip, logFile, port, socket string
 
 func init() {
+	flag.StringVar(&ip,      "ip",          "0.0.0.0",                          "Server bind IP address")
+	flag.StringVar(&logFile, "log-path",    "/var/log/sng-export.log",          "Logfile location")
 	flag.StringVar(&port,    "port",        "8000",                             "Server bind port")
 	flag.StringVar(&socket,  "socket-path", "/var/lib/syslog-ng/syslog-ng.ctl", "syslog-ng.ctl socket location")
-	flag.StringVar(&logFile, "log-path",    "/var/log/sng-export.log",          "Logfile location")
 }
 
 func main() {
 
 	flag.Parse()
 
+	fhLog, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		 log.Fatal(err)
+	}
+
+	defer fhLog.Close()
+
+	log.SetOutput(fhLog)
+	log.Println("sng-export starting")
+	log.Println("bind: " + ip + ":" + port)
+	log.Println("syslog-ng socket: " + socket)
+
+	rootContent :=  "<html>\n" +
+			" <head><title>Syslog-NG Exporter</title></head>\n" +
+			"  <body>\n" +
+			"  <h1>Syslog-NG Exporter</h1>\n" +
+			"  <p><a href=\"/metrics\">Metrics</a></p>\n" +
+			"</body>\n" +
+			"</html>"
+
+	NFContent :=    "<html>\n" +
+			" <head><title>Syslog-NG Exporter</title></head>\n" +
+			"  <body>\n" +
+			"  <h1>404 Not Found</h1>\n" +
+			"</body>\n" +
+			"</html>"
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type","text/html")
-		fmt.Fprintln(w, "<html>\n" +
-			        " <head><title>Syslog-NG Exporter</title></head>\n" +
-			        "  <body>\n" +
-			        "  <h1>Syslog-NG Exporter</h1>\n" +
-			        " <p><a href=\"/metrics\">Metrics</a></p>\n" +
-			        "</body>\n" +
-			        "</html>")
+		content := rootContent
+		referer := r.Header.Get("Referer")
+		url := r.URL.String()
+		code := 200
+
+		if referer == "" {
+			referer = "-"
+		}
+		if url != "/" {
+			code = 404
+			content = NFContent
+		}
+
+		txBytes := len(content)
+		fmt.Fprintln(w, content)
+		log.Print(getClientIP(r), " \"" + r.Method + " " + r.URL.String() + "\" ", txBytes, " ", code, " \"" + referer + "\" " + r.Header.Get("User-Agent"))
 	})
 
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "text/plain")
-		GetSNGStats(w, socket)
+		txBytes, err := GetSNGStats(w, socket)
+		if err == nil {
+			log.Print(r.Method + " \"/metrics\" ", txBytes)
+		} else {
+			log.Print(err)
+		}
 	})
-	http.ListenAndServe(":"+port, mux)
+
+	http.ListenAndServe(ip + ":" + port, mux)
 }
 
