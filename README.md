@@ -48,4 +48,17 @@ format: date time.ms prometheus_server_ip "method url" bytes_sent http_status "r
     2021/08/18 02:54:38.378396 10.11.12.13 "GET /metrics" 7474 200 "-" Prometheus/2.26.0
     2021/08/18 02:54:53.378353 10.11.12.13 "GET /metrics" 7474 200 "-" Prometheus/2.26.0
 
+#### test
+
+    # curl localhost:8000/
+    <html>
+     <head><title>Syslog-NG Exporter</title></head>
+      <body>
+      <h1>Syslog-NG Exporter</h1>
+      <p><a href="/metrics">Metrics</a></p>
+    </body>
+    </html>
+
+    # curl localhost:8000/metrics
+    ....
 
