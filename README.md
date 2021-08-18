@@ -30,4 +30,22 @@ Export Syslog-NG metrics for Prometheus import.
       -socket-path string
            syslog-ng.ctl socket location (default "/var/lib/syslog-ng/syslog-ng.ctl")
 
+#### monitor
+
+sng-export creates a log at /var/log/sng-export.log by default (see usage)
+
+format: date time.ms prometheus_server_ip "method url" bytes_sent http_status "referer" user-agent
+
+    # tail -f /var/log/sng-export.log 
+    2021/08/18 02:52:38.378423 10.11.12.13 "GET /metrics" 8739 200 "-" Prometheus/2.26.0
+    2021/08/18 02:52:53.379103 10.11.12.13 "GET /metrics" 8903 200 "-" Prometheus/2.26.0
+    2021/08/18 02:53:08.377324 10.11.12.13 "GET /metrics" 8283 200 "-" Prometheus/2.26.0
+    2021/08/18 02:53:23.378199 10.11.12.13 "GET /metrics" 8903 200 "-" Prometheus/2.26.0
+    2021/08/18 02:53:38.377649 10.11.12.13 "GET /metrics" 7475 200 "-" Prometheus/2.26.0
+    2021/08/18 02:53:53.379115 10.11.12.13 "GET /metrics" 6715 200 "-" Prometheus/2.26.0
+    2021/08/18 02:54:08.379129 10.11.12.13 "GET /metrics" 6715 200 "-" Prometheus/2.26.0
+    2021/08/18 02:54:23.377992 10.11.12.13 "GET /metrics" 7474 200 "-" Prometheus/2.26.0
+    2021/08/18 02:54:38.378396 10.11.12.13 "GET /metrics" 7474 200 "-" Prometheus/2.26.0
+    2021/08/18 02:54:53.378353 10.11.12.13 "GET /metrics" 7474 200 "-" Prometheus/2.26.0
+
 
