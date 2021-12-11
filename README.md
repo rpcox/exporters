@@ -10,6 +10,14 @@ Export Syslog-NG metrics for Prometheus import.
 
 #### install
 
+    Tested on 
+
+    - Ubuntu 16.04, 18.04, 20.04, 21.04
+      - arm64 & x86_64
+    - RHEL 6, 7, 8
+      - x86_64
+
+
     In syslog-ng.conf, set "stats-level(1)".  Then, 
 
     mkdir /opt/sng-export
