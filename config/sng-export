@@ -1,0 +1,9 @@
+/var/log/sng-export
+{
+	rotate 3
+	daily
+	missingok
+	notifempty
+	compress
+}
+
