@@ -43,7 +43,26 @@ func getClientIP(r *http.Request) string {
 	return xRealIP
 }
 
-type SNGData struct {      // Field names from 'syslog-ng-ctl stats' call
+func logIt(r *http.Request, txBytes int, code int) {
+
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "-"
+	}
+
+	log.Print(getClientIP(r), " \"" + r.Method + " " + r.URL.String() + "\" ", txBytes, " ", code, " \"" + referer + "\" " + r.Header.Get("User-Agent"))
+}
+
+// Field names from 'syslog-ng-ctl stats' call
+// objectType;id;instance;state;statType;value
+//
+// Examples
+// dst.file;d_host#0;/mnt/data/log/192.168.1.15/20211211-192.168.1.15-systemd.log;o;written;1
+// global;msg_clones;;a;processed;0
+// destination;d_junk;;a;processed;0
+// src.tcp;s_net#0;tcp,192.168.1.150;a;processed;34
+//
+type SNGData struct {
 	objectType string  // SourceName
 	id         string  // SourceId
 	instance   string  // SourceInstance
@@ -59,12 +78,12 @@ func CreateTypeLine (metricName string, metricType string) string {
 
 func CreateMetricLine(metricName string, sng SNGData) string {
 	num := fmt.Sprintf("%g", sng.value)
-	if sng.instance == "" {
-		host, err := os.Hostname()
-		if err == nil {
-			sng.instance = host
-		}
-	}
+//	if sng.instance == "" {
+//		host, err := os.Hostname()
+//		if err == nil {
+//			sng.instance = host
+//		}
+//	}
 	s:= []string{metricName, "{id=\"", sng.id, "\",sng_instance=\"", sng.instance, "\",state=\"", sng.state, "\"} ", num}
 	return strings.Join(s,"")
 }
@@ -98,6 +117,7 @@ func parseLine(line string) (SNGData, error) {
 
 func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	c, err := net.Dial("unix", socket)
+	txBytes  := 0
 
 	if err != nil {
 		log.Print(err)
@@ -107,10 +127,19 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	defer c.Close()
 	_, err = c.Write([]byte("STATS\n"))
 
+	fmt.Fprintln(w, "# TYPE sng_dial_status gauge")   // 28 char + \n = 29
+	txBytes = 29
+	socketStatus := "sng_dial_status{id=\"socket_status\"}"
+	txBytes += len(socketStatus)
+
 	if err != nil {
+		fmt.Fprintln(w, socketStatus, "0")
 		log.Print(err)
-		return 0, err
+		return txBytes + 2, err
 	}
+
+	fmt.Fprintln(w, socketStatus, "1")
+	txBytes += 2
 
 	buf := bufio.NewReader(c)
 	_, err = buf.ReadString('\n')
@@ -121,7 +150,6 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	}
 
 	var metricType string
-	txBytes  := 0
 	typeName := make(map[string]int)
 
 	for {
@@ -153,27 +181,19 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 		typeText := CreateTypeLine(metricName, metricType)
 		_, exist := typeName[metricName]
 
+		// if the typeName has not come up yet, write it
 		if ! exist {
 			typeName[metricName] = 1
 			fmt.Fprintln(w, typeText)
 			txBytes += len(typeText)
 		}
+
 		metricText := CreateMetricLine(metricName, sngData)
 		fmt.Fprintln(w, metricText)
 		txBytes += len(metricText)
 	}
 
 	return txBytes, nil
-}
-
-func logIt(r *http.Request, txBytes int, code int) {
-
-	referer := r.Header.Get("Referer")
-	if referer == "" {
-		referer = "-"
-	}
-
-	log.Print(getClientIP(r), " \"" + r.Method + " " + r.URL.String() + "\" ", txBytes, " ", code, " \"" + referer + "\" " + r.Header.Get("User-Agent"))
 }
 
 var ip, logFile, port, socket string
