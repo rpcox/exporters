@@ -109,38 +109,59 @@ func parseLine(line string) (SNGData, error) {
 }
 
 func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
+	typeText := "# TYPE sng_dial_state gauge"
+	fmt.Fprintln(w, typeText)
+	txBytes := len(typeText)
+
+	status := "sng_net_dial{id=\"status_metric\"}"
+	txBytes += len(status)
+
 	c, err := net.Dial("unix", socket)
-	txBytes := 0
 
 	if err != nil {
-		log.Print(err)
-		return 0, err
-	}
-
-	defer c.Close()
-	_, err = c.Write([]byte("STATS\n"))
-
-	fmt.Fprintln(w, "# TYPE sng_dial_status gauge") // 28 char + \n = 29
-	txBytes = 29
-	socketStatus := "sng_dial_status{id=\"socket_status\"}"
-	txBytes += len(socketStatus)
-
-	if err != nil {
-		fmt.Fprintln(w, socketStatus, "0")
+		fmt.Fprintln(w, status, "0")
 		log.Print(err)
 		return txBytes + 2, err
 	}
 
-	fmt.Fprintln(w, socketStatus, "1")
+	defer c.Close()
+	fmt.Fprintln(w, status, "1")
 	txBytes += 2
+
+	typeText = "# TYPE sng_dial_state gauge"
+	fmt.Fprintln(w, typeText)
+	txBytes += len(typeText)
+	status = "sng_socket_write{id=\"status_metric\"}"
+	txBytes += len(status)
+
+	_, err = c.Write([]byte("STATS\n"))
+
+	if err != nil {
+		fmt.Fprintln(w, status, "0")
+		log.Print(err)
+		return txBytes + 2, err
+	}
+
+	fmt.Fprintln(w, status, "1")
+	txBytes += 2
+
+	typeText = "# TYPE sng_buffer_state gauge"
+	fmt.Fprintln(w, typeText)
+	txBytes += len(typeText)
+	status = "sng_buffer_read{id=\"status_metric\"}"
+	txBytes += len(status)
 
 	buf := bufio.NewReader(c)
 	_, err = buf.ReadString('\n')
 
 	if err != nil {
+		fmt.Fprintln(w, status, "0")
 		log.Print(err)
-		return 0, err
+		return txBytes + 2, err
 	}
+
+	fmt.Fprintln(w, status, "1")
+	txBytes += 2
 
 	var metricType string
 	typeName := make(map[string]int)
@@ -170,7 +191,7 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 		}
 
 		metricName := CreateMetricName(sngData, metricType)
-		typeText := CreateTypeLine(metricName, metricType)
+		typeText = CreateTypeLine(metricName, metricType)
 		_, exist := typeName[metricName]
 
 		// if the typeName has not come up yet, write it
