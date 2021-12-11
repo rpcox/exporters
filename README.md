@@ -14,7 +14,8 @@ Export Syslog-NG metrics for Prometheus import.
 
     mkdir /opt/sng-export
     cp sng-export /opt/sng-export
-    cp sng-export.service /etc/systemd/system
+    cp config/sng-export.service /etc/systemd/system
+    cp config/sng-export /etc/logrotate.d
     systemctl daemon-reload
     systemctl enable sng-export
     systemctl start sng-export
