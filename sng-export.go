@@ -50,7 +50,7 @@ func logIt(r *http.Request, txBytes int, code int) {
 		referer = "-"
 	}
 
-	log.Print(getClientIP(r), " \"" + r.Method + " " + r.URL.String() + "\" ", txBytes, " ", code, " \"" + referer + "\" " + r.Header.Get("User-Agent"))
+	log.Print(getClientIP(r), " \""+r.Method+" "+r.URL.String()+"\" ", txBytes, " ", code, " \""+referer+"\" "+r.Header.Get("User-Agent"))
 }
 
 // Field names from 'syslog-ng-ctl stats' call
@@ -71,36 +71,29 @@ type SNGData struct {
 	value      float64 // Number
 }
 
-func CreateTypeLine (metricName string, metricType string) string {
-	slice:= []string{"# TYPE", metricName, metricType}
-	return strings.Join(slice," ")
+func CreateTypeLine(metricName string, metricType string) string {
+	slice := []string{"# TYPE", metricName, metricType}
+	return strings.Join(slice, " ")
 }
 
 func CreateMetricLine(metricName string, sng SNGData) string {
 	num := fmt.Sprintf("%g", sng.value)
-//	if sng.instance == "" {
-//		host, err := os.Hostname()
-//		if err == nil {
-//			sng.instance = host
-//		}
-//	}
-	s:= []string{metricName, "{id=\"", sng.id, "\",sng_instance=\"", sng.instance, "\",state=\"", sng.state, "\"} ", num}
-	return strings.Join(s,"")
+	s := []string{metricName, "{id=\"", sng.id, "\",sng_instance=\"", sng.instance, "\",state=\"", sng.state, "\"} ", num}
+	return strings.Join(s, "")
 }
 
 func CreateMetricName(m SNGData, st string) string {
 	var slice []string
 
 	switch st[0:1] {
-		case "c":                    // counter
-			slice = []string{"sng", m.objectType, m.statType, "total"}
-		case "g":                    // gauge
-			slice = []string{"sng", m.objectType, m.statType}
+	case "c": // counter
+		slice = []string{"sng", m.objectType, m.statType, "total"}
+	case "g": // gauge
+		slice = []string{"sng", m.objectType, m.statType}
 	}
 
-	return strings.ReplaceAll(strings.Join(slice,"_"), ".", "_")
+	return strings.ReplaceAll(strings.Join(slice, "_"), ".", "_")
 }
-
 
 func parseLine(line string) (SNGData, error) {
 	var s SNGData
@@ -117,7 +110,7 @@ func parseLine(line string) (SNGData, error) {
 
 func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	c, err := net.Dial("unix", socket)
-	txBytes  := 0
+	txBytes := 0
 
 	if err != nil {
 		log.Print(err)
@@ -127,7 +120,7 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 	defer c.Close()
 	_, err = c.Write([]byte("STATS\n"))
 
-	fmt.Fprintln(w, "# TYPE sng_dial_status gauge")   // 28 char + \n = 29
+	fmt.Fprintln(w, "# TYPE sng_dial_status gauge") // 28 char + \n = 29
 	txBytes = 29
 	socketStatus := "sng_dial_status{id=\"socket_status\"}"
 	txBytes += len(socketStatus)
@@ -169,12 +162,11 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 			continue
 		}
 
-
 		switch sngData.statType[0:2] {
-			case "co", "me", "qu" :  // connections, memory_usage, queued
-				metricType = "gauge"
-			default:                 // dropped, matched, not_matched, processed, stamp, value, written
-				metricType = "counter"
+		case "co", "me", "qu": // connections, memory_usage, queued
+			metricType = "gauge"
+		default: // dropped, matched, not_matched, processed, stamp, value, written
+			metricType = "counter"
 		}
 
 		metricName := CreateMetricName(sngData, metricType)
@@ -182,7 +174,7 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 		_, exist := typeName[metricName]
 
 		// if the typeName has not come up yet, write it
-		if ! exist {
+		if !exist {
 			typeName[metricName] = 1
 			fmt.Fprintln(w, typeText)
 			txBytes += len(typeText)
@@ -199,10 +191,10 @@ func GetSNGStats(w http.ResponseWriter, socket string) (int, error) {
 var ip, logFile, port, socket string
 
 func init() {
-	flag.StringVar(&ip,      "ip",          "0.0.0.0",                          "Server bind IP address")
-	flag.StringVar(&logFile, "log-path",    "/var/log/sng-export.log",          "Logfile location")
-	flag.StringVar(&port,    "port",        "8000",                             "Server bind port")
-	flag.StringVar(&socket,  "socket-path", "/var/lib/syslog-ng/syslog-ng.ctl", "syslog-ng.ctl socket location")
+	flag.StringVar(&ip, "ip", "0.0.0.0", "Server bind IP address")
+	flag.StringVar(&logFile, "log-path", "/var/log/sng-export.log", "Logfile location")
+	flag.StringVar(&port, "port", "8000", "Server bind port")
+	flag.StringVar(&socket, "socket-path", "/var/lib/syslog-ng/syslog-ng.ctl", "syslog-ng.ctl socket location")
 }
 
 func main() {
@@ -211,7 +203,7 @@ func main() {
 
 	fhLog, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		 log.Fatal(err)
+		log.Fatal(err)
 	}
 
 	defer fhLog.Close()
@@ -222,24 +214,24 @@ func main() {
 	log.Println("bind: " + ip + ":" + port)
 	log.Println("syslog-ng socket: " + socket)
 
-	rootContent :=  "<html>\n" +
-			" <head><title>Syslog-NG Exporter</title></head>\n" +
-			"  <body>\n" +
-			"  <h1>Syslog-NG Exporter</h1>\n" +
-			"  <p><a href=\"/metrics\">Metrics</a></p>\n" +
-			"</body>\n" +
-			"</html>"
+	rootContent := "<html>\n" +
+		" <head><title>Syslog-NG Exporter</title></head>\n" +
+		"  <body>\n" +
+		"  <h1>Syslog-NG Exporter</h1>\n" +
+		"  <p><a href=\"/metrics\">Metrics</a></p>\n" +
+		"</body>\n" +
+		"</html>"
 
-	NFContent :=    "<html>\n" +
-			" <head><title>Syslog-NG Exporter</title></head>\n" +
-			"  <body>\n" +
-			"  <h1>404 Not Found</h1>\n" +
-			"</body>\n" +
-			"</html>"
+	NFContent := "<html>\n" +
+		" <head><title>Syslog-NG Exporter</title></head>\n" +
+		"  <body>\n" +
+		"  <h1>404 Not Found</h1>\n" +
+		"</body>\n" +
+		"</html>"
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type","text/html")
+		w.Header().Add("Content-Type", "text/html")
 		content := rootContent
 		code := 200
 
@@ -263,6 +255,5 @@ func main() {
 		}
 	})
 
-	http.ListenAndServe(ip + ":" + port, mux)
+	http.ListenAndServe(ip+":"+port, mux)
 }
-
