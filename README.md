@@ -10,6 +10,8 @@ Export Syslog-NG metrics for Prometheus import.
 
 #### install
 
+    In syslog-ng.conf, set "stats-level(1)".  Then, 
+
     mkdir /opt/sng-export
     cp sng-export /opt/sng-export
     cp sng-export.service /etc/systemd/system
