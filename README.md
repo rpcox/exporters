@@ -52,7 +52,7 @@ format: date time.ms prometheus_server_ip "method url" bytes_sent http_status "r
 
 #### test
 
-    # curl localhost:8000/
+    $ curl localhost:8000/
     <html>
      <head><title>Syslog-NG Exporter</title></head>
       <body>
@@ -61,6 +61,13 @@ format: date time.ms prometheus_server_ip "method url" bytes_sent http_status "r
     </body>
     </html>
 
-    # curl localhost:8000/metrics
+    $ curl localhost:8000/metrics
     ....
+
+
+    If Syslog-NG is down, only one metric is presented
+
+    $ curl loghost:8000/metrics 
+    # TYPE sng_dial_state gauge
+    sng_net_dial{id="status_metric"} 0
 
