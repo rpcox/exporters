@@ -6,7 +6,9 @@ import (
 	"bufio"
 	"context"
 	"flag"
-	"io"
+	"fmt"
+
+	//	"io"
 	"log"
 	"net"
 	"net/http"
@@ -91,7 +93,7 @@ var rootContent = `<html>
 func homeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 	w.Write([]byte(rootContent))
-	log.Printf(r.RemoteAddr + " \"" + r.Method + " " + r.URL.String() + "\"+" + r.Header.Get("User-Agent"))
+	log.Printf(r.RemoteAddr + " \"" + r.Method + " " + r.URL.String() + "+" + r.Header.Get("User-Agent"))
 }
 
 var NFContent = `<html><head><title>Syslog-NG Exporter</title></head>
@@ -109,9 +111,9 @@ func notAllowed(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetRawMetrics(w http.ResponseWriter, socket string, prom bool) (int, error) {
-	query := "STATS"
+	query := "STATS\n"
 	if prom {
-		query = "STATS PROMETHEUS"
+		query = "STATS PROMETHEUS\n"
 	}
 
 	c, err := net.Dial("unix", socket)
@@ -129,16 +131,23 @@ func GetRawMetrics(w http.ResponseWriter, socket string, prom bool) (int, error)
 		return 0, err
 	}
 
-	r := bufio.NewReader(c)
-	content, err := io.ReadAll(r)
-	if err != nil {
-		log.Print(err)
-		return 0, err
+	buf := bufio.NewReader(c)
+	bytes := 0
+
+	for {
+		line, err := buf.ReadString('\n')
+		if err != nil {
+			log.Println(err)
+			break
+		} else if line[0] == '.' {
+			break
+		}
+
+		fmt.Fprint(w, line)
+		bytes += len(line)
 	}
 
-	w.Write(content)
-
-	return len(content), nil
+	return bytes, nil
 }
 
 func sigHandler(sigChan chan os.Signal, server *http.Server, ctl CtlData) {
@@ -168,7 +177,9 @@ func main() {
 		w.Header().Add("Content-Type", "text/plain")
 		n, err := GetRawMetrics(w, ctl.Socket, ctl.Prometheus)
 		if err == nil {
-			log.Println(r.RemoteAddr+" \""+r.Method+" "+r.URL.String()+"\"+"+r.Header.Get("User-Agent"), 200, n)
+			s := fmt.Sprintf("%s \"%s %s\" %s 200 %d\n",
+				r.RemoteAddr, r.Method, r.URL.String(), r.Header.Get("User-Agent"), 200, n)
+			log.Println(s)
 		} else {
 			log.Print(err)
 		}
