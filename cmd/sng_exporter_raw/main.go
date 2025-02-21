@@ -4,13 +4,17 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -137,6 +141,24 @@ func GetRawMetrics(w http.ResponseWriter, socket string, prom bool) (int, error)
 	return len(content), nil
 }
 
+func sigHandler(sigChan chan os.Signal, server *http.Server, ctl CtlData) {
+	for sig := range sigChan {
+		if sig == syscall.SIGUSR1 {
+			log.Println("signal: resetting log file")
+			log.Println(ctl.LogFileName)
+		} else if sig == syscall.SIGTERM || sig == syscall.SIGINT {
+			log.Println("signal: shutting down")
+			ctx, shutdownRelease := context.WithTimeout(context.Background(), 5*time.Second)
+			defer shutdownRelease()
+
+			if err := server.Shutdown(ctx); err != nil {
+				log.Fatalf("HTTP shutdown error: %v", err)
+			}
+			return
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
 	ctl := Initialize()
@@ -157,5 +179,16 @@ func main() {
 	r.NotFoundHandler = http.HandlerFunc(notFound)
 	r.MethodNotAllowedHandler = http.HandlerFunc(notAllowed)
 
-	http.ListenAndServe(ctl.Bind+":"+ctl.Port, nil)
+	server := &http.Server{
+		Addr:    ctl.Bind + ":" + ctl.Port,
+		Handler: r,
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
+	go sigHandler(sigChan, server, ctl)
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
