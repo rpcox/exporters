@@ -2,5 +2,5 @@ go 1.21.5
 
 use (
 	./cmd/sng_export
-	./cmd/sng_export_prom
+	./cmd/sng_export_raw
 )
