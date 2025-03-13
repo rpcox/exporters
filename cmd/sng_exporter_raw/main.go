@@ -178,7 +178,7 @@ func main() {
 		n, err := GetRawMetrics(w, ctl.Socket, ctl.Prometheus)
 		if err == nil {
 			s := fmt.Sprintf("%s \"%s %s\" %s 200 %d\n",
-				r.RemoteAddr, r.Method, r.URL.String(), r.Header.Get("User-Agent"), 200, n)
+				r.RemoteAddr, r.Method, r.URL.String(), r.Header.Get("User-Agent"), n)
 			log.Println(s)
 		} else {
 			log.Print(err)
