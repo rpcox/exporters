@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=nobody
+Group=nogroup
+Type=simple
+ExecStart=/opt/text_exporter/text_exporter -path /path/to/exported/files
+
+[Install]
+WantedBy=multi-user.target
