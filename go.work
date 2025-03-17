@@ -1,6 +1,6 @@
 go 1.21.5
 
 use (
-	./cmd/sng_export
-	./cmd/sng_export_raw
+	./cmd/sng_exporter
+	./cmd/sng_exporter_raw
 )
