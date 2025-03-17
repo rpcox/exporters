@@ -1,3 +1,3 @@
-module github.com/rpcox/sng_exporter
+ module github.com/rpcox/exporters/cmd/sng_exporter
 
 go 1.13

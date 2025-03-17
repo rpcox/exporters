@@ -1,4 +1,4 @@
-module github.com/rpcox/sng_export/cmd/sng_exporter_prom
+module github.com/rpcox/exporters/cmd/sng_exporter_raw
 
 go 1.21.5
 
