@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
+	//"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -18,8 +18,8 @@ func main() {
 	reg := prometheus.NewPedanticRegistry()
 	ssc := NewSiteStatCollector(*_siteList)
 	reg.MustRegister(
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-		collectors.NewGoCollector(),
+		//	collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		//	collectors.NewGoCollector(),
 		ssc,
 	)
 
