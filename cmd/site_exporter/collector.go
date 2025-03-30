@@ -127,7 +127,7 @@ func (ssc *SiteStatCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func (ssc *SiteStatCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, site := range *ssc.Sites {
-		// We're here.  Inc the attempt total
+
 		if c, err := ssc.HttpRequestAttemptsTotal.GetMetricWithLabelValues(site.Host); err == nil {
 			c.Inc()
 		} else {
