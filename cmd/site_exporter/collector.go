@@ -130,7 +130,6 @@ func (ssc *SiteStatCollector) Collect(ch chan<- prometheus.Metric) {
 		// We're here.  Inc the attempt total
 		if c, err := ssc.HttpRequestAttemptsTotal.GetMetricWithLabelValues(site.Host); err == nil {
 			c.Inc()
-			ch <- c
 		} else {
 			log.Println(err)
 		}
@@ -161,14 +160,12 @@ func (ssc *SiteStatCollector) Collect(ch chan<- prometheus.Metric) {
 
 		if d, err := ssc.HttpDuration.GetMetricWithLabelValues(site.Host); err == nil {
 			d.Set(float64(duration))
-			ch <- d
 		} else {
 			log.Println(err)
 		}
 
 		if c, err := ssc.HttpRequestSuccessTotal.GetMetricWithLabelValues(site.Host, statusCode); err == nil {
 			c.Inc()
-			ch <- c
 		} else {
 			log.Println(err)
 		}
