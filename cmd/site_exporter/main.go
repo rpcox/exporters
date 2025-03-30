@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
-	//"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -15,14 +14,8 @@ func main() {
 	//_log := flag.String("log", "", "Location of log file")
 	flag.Parse()
 
-	reg := prometheus.NewPedanticRegistry()
 	ssc := NewSiteStatCollector(*_siteList)
-	reg.MustRegister(
-		//	collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-		//	collectors.NewGoCollector(),
-		ssc,
-	)
-
-	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	prometheus.Register(ssc)
+	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(":9400", nil))
 }
