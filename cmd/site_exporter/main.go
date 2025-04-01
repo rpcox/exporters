@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -68,6 +69,11 @@ func Initialize() FlagData {
 func StartLog(fd *FlagData) error {
 	if fd.LogFh != nil {
 		fd.LogFh.Close()
+		now := time.Now().Format(`20060102`)
+		err := os.Rename(fd.LogFileName, fd.LogFileName+`-`+now)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not move log file on reset: %v\n", err)
+		}
 		fd.LogFh = nil
 	}
 
