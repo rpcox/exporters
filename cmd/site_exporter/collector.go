@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -24,12 +25,15 @@ type Site struct {
 }
 
 type SiteStatCollector struct {
-	Sites                    *[]Site
 	HttpRequestAttemptsTotal *prometheus.CounterVec
 	HttpRequestSuccessTotal  *prometheus.CounterVec
 	HttpDuration             *prometheus.GaugeVec
 	HttpDurationBucket       *prometheus.HistogramVec
+	siteListFile             string
+	sites                    *[]Site
 }
+
+var siteReloadSignal bool
 
 // Read a tab delimited text file with a header
 // File format - tab separated
@@ -48,17 +52,20 @@ func loadSites(siteList string) *[]Site {
 
 		rows, err := reader.ReadAll()
 		if err != nil {
-			log.Fatal("cannot read site list:", siteList)
+			s := fmt.Sprintf("cannot read site list: %s\n", siteList)
+			log.Print(s)
+			fmt.Fprint(os.Stderr, s)
+			return &list
 		}
 
-		for _, row := range rows {
+		for i, row := range rows {
 			// skip comments
 			if row[0] == "#" {
 				continue
 			}
 			p, err := url.Parse(row[0])
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("skipping line %d: %v\n", i, err)
 			}
 
 			//   0           1          2         3         4         5          6
@@ -78,15 +85,22 @@ func loadSites(siteList string) *[]Site {
 		}
 
 	} else {
-		log.Fatal("cannot open site list:", siteList)
+		s := fmt.Sprintf("cannot open site list: %s\n", siteList)
+		log.Print(s)
+		fmt.Fprint(os.Stderr, s)
+		return nil
 	}
 
+	log.Printf("loaded %d sites\n", len(list))
 	return &list
 }
 
 func NewSiteStatCollector(siteList string) prometheus.Collector {
+	siteReloadSignal = false
+
 	ssc := SiteStatCollector{}
-	ssc.Sites = loadSites(siteList)
+	ssc.siteListFile = siteList
+	ssc.sites = loadSites(ssc.siteListFile)
 
 	ssc.HttpRequestAttemptsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "http_request_attempt_total",
@@ -130,7 +144,7 @@ func (ssc *SiteStatCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (ssc *SiteStatCollector) Collect(ch chan<- prometheus.Metric) {
-	for _, site := range *ssc.Sites {
+	for _, site := range *ssc.sites {
 
 		if c, err := ssc.HttpRequestAttemptsTotal.GetMetricWithLabelValues(site.Host); err == nil {
 			c.Inc()
@@ -180,5 +194,16 @@ func (ssc *SiteStatCollector) Collect(ch chan<- prometheus.Metric) {
 		} else {
 			g.Observe(float64(duration))
 		}
+	}
+
+	if siteReloadSignal {
+		newLoad := loadSites(ssc.siteListFile)
+		if newLoad != nil {
+			ssc.sites = newLoad
+			log.Printf("success: loaded %d sites\n", len(*newLoad))
+		} else {
+			log.Printf("fail: received nil list \n")
+		}
+		siteReloadSignal = false
 	}
 }

@@ -89,6 +89,9 @@ func sigHandler(sigChan chan os.Signal, server *http.Server, fd FlagData) {
 		if sig == syscall.SIGUSR1 {
 			log.Println("signal: resetting log file")
 			log.Println(fd.LogFileName)
+		} else if sig == syscall.SIGUSR2 {
+			log.Println("signal: prep for site reload")
+			siteReloadSignal = true
 		} else if sig == syscall.SIGTERM || sig == syscall.SIGINT {
 			log.Println("signal: shutting down")
 			ctx, shutdownRelease := context.WithTimeout(context.Background(), 5*time.Second)
@@ -114,7 +117,7 @@ func main() {
 	}
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
 	go sigHandler(sigChan, server, fd)
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
