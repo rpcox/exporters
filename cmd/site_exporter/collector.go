@@ -52,6 +52,10 @@ func loadSites(siteList string) *[]Site {
 		}
 
 		for _, row := range rows {
+			// skip comments
+			if row[0] == "#" {
+				continue
+			}
 			p, err := url.Parse(row[0])
 			if err != nil {
 				log.Fatal(err)

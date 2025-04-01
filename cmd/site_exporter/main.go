@@ -79,7 +79,7 @@ func StartLog(fd *FlagData) error {
 	log.SetOutput(fh)
 	//	log.SetFlags(log.Lmicroseconds | log.LUTC | log.Ldate | log.Ltime | log.Lshortfile)
 	log.SetFlags(log.Lmicroseconds | log.LUTC | log.Ldate | log.Ltime)
-	log.Printf("%s starting", tool)
+	log.Printf("%s v%s starting", tool, version)
 
 	return nil
 }
@@ -120,5 +120,4 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
-	//log.Fatal(http.ListenAndServe(":9400", nil))
 }
