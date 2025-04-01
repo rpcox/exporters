@@ -1,0 +1,13 @@
+[Unit]
+Description=Site Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=nobody
+Group=nobody
+Type=simple
+ExecStart=/usr/local/sbin/site_exporter -site-list /usr/local/etc/endpoint-list.txt
+
+[Install]
+WantedBy=multi-user.target
