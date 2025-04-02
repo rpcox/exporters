@@ -20,6 +20,11 @@ import (
 const tool = "site_exporter"
 const version = "0.1.0"
 
+var (
+	branch string
+	commit string
+)
+
 type FlagData struct {
 	Bind        string
 	LogFh       *os.File
@@ -28,16 +33,33 @@ type FlagData struct {
 	SiteList    string
 }
 
+func Version(b bool) {
+	if b {
+		if commit != "" {
+			// go build -ldflags="-X main.commit=$(git rev-parse --short HEAD) -X main.branch=$(git branch | sed 's/.*\* //')"
+			fmt.Printf("%s v%s (commit:%s branch:%s)\n", tool, version, commit, branch)
+		} else {
+			// go build
+			fmt.Printf("%s v%s\n", tool, version)
+		}
+
+		os.Exit(0)
+	}
+}
 func Initialize() FlagData {
 	var ip string
 	var port int
+	var v bool
 	var fd FlagData
 
 	flag.StringVar(&fd.LogFileName, "log", "/var/log/site_exporter.log", "Logfile location")
 	flag.StringVar(&ip, "ip", "0.0.0.0", "Server bind IP address")
 	flag.IntVar(&port, "port", 9400, "Server bind port")
 	flag.StringVar(&fd.SiteList, "site-list", "", "Location of site list file")
+	flag.BoolVar(&v, "version", false, "Display the version and exit")
 	flag.Parse()
+
+	Version(v)
 
 	if fd.SiteList == "" {
 		log.Fatal("-site-list required")
